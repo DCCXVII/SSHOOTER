@@ -1,20 +1,53 @@
 #!/bin/bash
 
+# Regular Colors
+Black='\e[0;30m'        # Black
+Red='\e[0;31m'          # Red
+Green='\e[0;32m'        # Green
+Yellow='\e[0;33m'       # Yellow
+Blue='\e[0;34m'         # Blue
+Purple='\e[0;35m'       # Purple
+Cyan='\e[0;36m'         # Cyan
+White='\e[0;37m'        # White
+
+# Bold
+BBlack='\e[1;30m'       # Black
+BRed='\e[1;31m'         # Red
+BGreen='\e[1;32m'       # Green
+BYellow='\e[1;33m'      # Yellow
+BBlue='\e[1;34m'        # Blue
+BPurple='\e[1;35m'      # Purple
+BCyan='\e[1;36m'        # Cyan
+BWhite='\e[1;37m'       # White
+
+# Default
+DefaultColor='\e[39m'   # Default foreground color
+
 # ASCII Art Tag
-cat << 'END_ASCII'
- _____ _____ _                 _            
-/  ___/  ___| |               | |           
-\ `--.\ `--.| |__   ___   ___ | |_ ___ _ __ 
- `--. \`--. \ '_ \ / _ \ / _ \| __/ _ \ '__|
-/\__/ /\__/ / | | | (_) | (_) | ||  __/ |   
-\____/\____/|_| |_|\___/ \___/ \__\___|_|  
-END_ASCII
+echo -e "
+
+${BGreen}███████╗███████╗██╗  ██╗${BBlack} ██████╗  ██████╗ ${BGreen}████████╗███████╗██████╗ 
+${BGreen}██╔════╝██╔════╝██║  ██║${BBlack}██╔═══██╗██╔═══██╗${BGreen}╚══██╔══╝██╔════╝██╔══██╗
+${BGreen}███████╗███████╗███████║${BBlack}██║   ██║██║   ██║${BGreen}   ██║   █████╗  ██████╔╝
+${BGreen}╚════██║╚════██║██╔══██║${BBlack}██║   ██║██║   ██║${BGreen}   ██║   ██╔══╝  ██╔══██╗
+${BGreen}███████║███████║██║  ██║${BBlack}╚██████╔╝╚██████╔╝${BGreen}   ██║   ███████╗██║  ██║
+${BGreen}╚══════╝╚══════╝╚═╝  ╚═╝${BBlack} ╚═════╝  ╚═════╝ ${BGreen}   ╚═╝   ╚══════╝╚═╝  ╚═╝
+                                                                   
+${DefaultColor}
+" 
 
 # Function to list available network interfaces
 list_network_interfaces() {
     echo "Available network interfaces:"
-    # List network interfaces excluding loopback and down interfaces
-    ip -o link show | awk -F': ' '{print $2}' | grep -v 'lo' | grep -v 'DOWN' | nl
+    # List network interfaces using airmon-ng
+    airmon-ng
+}
+
+# Function to enable monitor mode on the selected interface
+enable_monitor_mode() {
+    local interface="$1"
+    echo "Enabling monitor mode on interface $interface..."
+    airmon-ng start "$interface"
 }
 
 # Function to scan Wi-Fi networks
@@ -53,24 +86,12 @@ connect_to_wifi() {
 
 # Main function
 main() {
-    # List available Wi-Fi networks
-    echo "Scanning for available Wi-Fi networks..."
-    echo
-    iwlist scan | grep 'ESSID\|Address' | awk '
-    BEGIN { print "Num  SSID                             BSSID             Port Open  WPS" }
-    /ESSID:/ { ssid = substr($0, index($0, ":") + 2); }
-    /Address:/ { 
-        bssid = $2; 
-        num = NR / 2 + 1; 
-        printf "%-5d %-30s %-20s %-10s %-10s\n", num, ssid, bssid, "N/A", "N/A"; 
-    }'
-
     # List network interfaces and prompt user to choose one
     list_network_interfaces
     read -p "Choose a network interface number: " choice
 
     # Get the selected interface based on user choice
-    local interface=$(ip -o link show | awk -F': ' '{print $2}' | grep -v 'lo' | grep -v 'DOWN' | sed -n "${choice}p")
+    local interface=$(airmon-ng | awk 'NR>2 {print $2}' | sed -n "${choice}p")
 
     # Validate the selected interface
     if [ -z "$interface" ]; then
@@ -78,6 +99,10 @@ main() {
         exit 1
     fi
 
+    # Enable monitor mode on the selected interface
+    enable_monitor_mode "$interface"
+
+    # Scan for Wi-Fi networks
     scan_wifi_networks "$interface"
 
     # Prompt user for network choice

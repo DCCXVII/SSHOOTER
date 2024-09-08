@@ -1,2 +1,1 @@
-## SShooter
 # SSHOOTER
