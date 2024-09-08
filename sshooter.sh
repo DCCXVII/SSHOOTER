@@ -34,7 +34,7 @@ ${BGreen}███████║███████║██║  ██║${B
 ${BGreen}╚══════╝╚══════╝╚═╝  ╚═╝${BBlack} ╚═════╝  ╚═════╝ ${BGreen}   ╚═╝   ╚══════╝╚═╝  ╚═╝
                                                                    
 ${DefaultColor}
-" 
+"
 
 # Function to list available network interfaces
 list_network_interfaces() {
@@ -56,23 +56,27 @@ scan_wifi_networks() {
     echo "Scanning for Wi-Fi networks on interface $interface..."
     echo
 
-    # Scan for available networks
-    iwlist "$interface" scan | grep 'ESSID\|Address' | awk '
-    BEGIN { print "Num  SSID                             BSSID             Port Open  WPS" }
-    /ESSID:/ { ssid = substr($0, index($0, ":") + 2); }
-    /Address:/ { 
-        bssid = $2; 
-        num = NR / 2 + 1; 
-        printf "%-5d %-30s %-20s %-10s %-10s\n", num, ssid, bssid, "N/A", "N/A"; 
+    # Scan for available networks using nmcli
+    nmcli -f SSID,BSSID,SIGNAL,SECURITY dev wifi | awk '
+    BEGIN { print "Num  SSID                             BSSID             Signal  Security" }
+    {
+        if (NR > 1) {  # Skip the header line
+            num = NR - 1;  # Numbering starts from 1
+            printf "%-5d %-30s %-20s %-10s %-10s\n", num, $1, $2, $3, $4;
+        }
     }'
 }
 
 # Function to connect to a Wi-Fi network
 connect_to_wifi() {
-    local mac_address="$1"
+    local ssid="$1"
+    local mac_address="$2"
 
-    # Remove colons from MAC address
+    # Remove colons from MAC address to use as password
     local password="${mac_address//:/}"
+
+    # Show the password
+    echo "Using password (MAC without colons): $password"
 
     # Attempt to connect to the Wi-Fi network using nmcli
     nmcli device wifi connect "$ssid" password "$password" 2>/dev/null
@@ -107,13 +111,15 @@ main() {
 
     # Prompt user for network choice
     read -p "Choose a network number to connect: " choice
-    local selected_network=$(awk -v choice="$choice" 'NR==choice+1 {print $3, $2}' <<< "$(iwlist "$interface" scan | grep 'ESSID\|Address')")
-    
+    local selected_network=$(awk -v choice="$choice" 'NR==choice+1 {print $1, $2}' <<< "$(nmcli -f SSID,BSSID dev wifi)")
+
     # Extract the SSID and BSSID
     ssid=$(echo "$selected_network" | awk '{print $1}')
     mac_address=$(echo "$selected_network" | awk '{print $2}')
 
-    connect_to_wifi "$mac_address"
+    echo "Connecting to SSID: $ssid with BSSID: $mac_address"
+
+    connect_to_wifi "$ssid" "$mac_address"
 }
 
 main
