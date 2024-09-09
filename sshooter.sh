@@ -26,12 +26,12 @@ DefaultColor='\e[39m'   # Default foreground color
 # ASCII Art Tag
 echo -e "
 
-${BGreen}███████╗███████╗██╗  ██╗${BBlack} ██████╗  ██████╗ ${BGreen}████████╗███████╗██████╗ 
-${BGreen}██╔════╝██╔════╝██║  ██║${BBlack}██╔═══██╗██╔═══██╗${BGreen}╚══██╔══╝██╔════╝██╔══██╗
-${BGreen}███████╗███████╗███████║${BBlack}██║   ██║██║   ██║${BGreen}   ██║   █████╗  ██████╔╝
-${BGreen}╚════██║╚════██║██╔══██║${BBlack}██║   ██║██║   ██║${BGreen}   ██║   ██╔══╝  ██╔══██╗
-${BGreen}███████║███████║██║  ██║${BBlack}╚██████╔╝╚██████╔╝${BGreen}   ██║   ███████╗██║  ██║
-${BGreen}╚══════╝╚══════╝╚═╝  ╚═╝${BBlack} ╚═════╝  ╚═════╝ ${BGreen}   ╚═╝   ╚══════╝╚═╝  ╚═╝
+${BWhite}███████╗███████╗██╗  ██╗${BGreen} ██████╗  ██████╗ ${BWhite}████████╗███████╗██████╗ 
+${BWhite}██╔════╝██╔════╝██║  ██║${BGreen}██╔═══██╗██╔═══██╗${BWhite}╚══██╔══╝██╔════╝██╔══██╗
+${BWhite}███████╗███████╗███████║${BGreen}██║   ██║██║   ██║${BWhite}   ██║   █████╗  ██████╔╝
+${BWhite}╚════██║╚════██║██╔══██║${BGreen}██║   ██║██║   ██║${BWhite}   ██║   ██╔══╝  ██╔══██╗
+${BWhite}███████║███████║██║  ██║${BGreen}╚██████╔╝╚██████╔╝${BWhite}   ██║   ███████╗██║  ██║
+${BWhite}╚══════╝╚══════╝╚═╝  ╚═╝${BGreen} ╚═════╝  ╚═════╝ ${BWhite}   ╚═╝   ╚══════╝╚═╝  ╚═╝
                                                                    
 ${DefaultColor}
 "
@@ -40,7 +40,13 @@ ${DefaultColor}
 list_network_interfaces() {
     echo "Available network interfaces:"
     # List network interfaces using airmon-ng
-    airmon-ng
+    airmon-ng | awk '
+    BEGIN { print "Num  Interface" }
+    NR > 2 {
+        num = NR - 2;
+        interface = $2;
+        printf "%-5d %-10s\n", num, interface;
+    }'
 }
 
 # Function to enable monitor mode on the selected interface
@@ -61,8 +67,19 @@ scan_wifi_networks() {
     BEGIN { print "Num  SSID                             BSSID             Signal  Security" }
     {
         if (NR > 1) {  # Skip the header line
-            num = NR - 1;  # Numbering starts from 1
-            printf "%-5d %-30s %-20s %-10s %-10s\n", num, $1, $2, $3, $4;
+            num = NR - 1;
+            ssid = $1;
+            bssid = $2;
+            signal = $3;
+            security = $4;
+            ssid_length = length(ssid);
+            bssid_length = length(bssid);
+            signal_length = length(signal);
+            security_length = length(security);
+            max_length = (ssid_length > bssid_length) ? ssid_length : bssid_length;
+            max_length = (max_length > signal_length) ? max_length : signal_length;
+            max_length = (max_length > security_length) ? max_length : security_length;
+            printf "%-5d %-*s %-*s %-*s %-*s\n", num, max_length, ssid, max_length, bssid, max_length, signal, max_length, security;
         }
     }'
 }
@@ -80,12 +97,15 @@ connect_to_wifi() {
 
     # Attempt to connect to the Wi-Fi network using nmcli
     nmcli device wifi connect "$ssid" password "$password" 2>/dev/null
+    connection_status=$?
 
-    if [ $? -eq 0 ]; then
+    if [ $connection_status -eq 0 ]; then
         echo "Connected successfully!"
     else
         echo "Failed to connect."
     fi
+
+    return $connection_status
 }
 
 # Main function
@@ -120,6 +140,11 @@ main() {
     echo "Connecting to SSID: $ssid with BSSID: $mac_address"
 
     connect_to_wifi "$ssid" "$mac_address"
+    connection_status=$?
+
+    if [ $connection_status -ne 0 ]; then
+        echo "Connection failed."
+    fi
 }
 
 main
