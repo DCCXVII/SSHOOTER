@@ -39,14 +39,23 @@ ${DefaultColor}
 # Function to list available network interfaces
 list_network_interfaces() {
     echo "Available network interfaces:"
+    echo
+
+    # ASCII Art Table Header
+    cat << 'END_ASCII'
+ _______________________
+| Num |    Interface    |
+|-----|-----------------|
+END_ASCII
+
     # List network interfaces using airmon-ng
     airmon-ng | awk '
-    BEGIN { print "Num  Interface" }
     NR > 2 {
         num = NR - 2;
         interface = $2;
-        printf "%-5d %-10s\n", num, interface;
+        printf "| %-3d | %-15s |\n", num, interface;
     }'
+    echo " _______________________"
 }
 
 # Function to enable monitor mode on the selected interface
@@ -62,9 +71,16 @@ scan_wifi_networks() {
     echo "Scanning for Wi-Fi networks on interface $interface..."
     echo
 
+    # ASCII Art Table Header
+    cat << 'END_ASCII'
+ ___________________________________________________________________________________________
+| Num |            SSID            |           BSSID           | Signal |    Security       |
+|-----|----------------------------|---------------------------|--------|-------------------|
+END_ASCII
+
     # Scan for available networks using nmcli
     nmcli -f SSID,BSSID,SIGNAL,SECURITY dev wifi | awk '
-    BEGIN { print "Num  SSID                             BSSID             Signal  Security" }
+    BEGIN { FS="  +"; OFS=" | " }
     {
         if (NR > 1) {  # Skip the header line
             num = NR - 1;
@@ -72,18 +88,11 @@ scan_wifi_networks() {
             bssid = $2;
             signal = $3;
             security = $4;
-            ssid_length = length(ssid);
-            bssid_length = length(bssid);
-            signal_length = length(signal);
-            security_length = length(security);
-            max_length = (ssid_length > bssid_length) ? ssid_length : bssid_length;
-            max_length = (max_length > signal_length) ? max_length : signal_length;
-            max_length = (max_length > security_length) ? max_length : security_length;
-            printf "%-5d %-*s %-*s %-*s %-*s\n", num, max_length, ssid, max_length, bssid, max_length, signal, max_length, security;
+            printf "| %-3d | %-26s | %-25s | %-6s | %-17s |\n", num, ssid, bssid, signal, security;
         }
     }'
+    echo " ___________________________________________________________________________________________"
 }
-
 # Function to connect to a Wi-Fi network
 connect_to_wifi() {
     local ssid="$1"
@@ -145,6 +154,10 @@ main() {
     if [ $connection_status -ne 0 ]; then
         echo "Connection failed."
     fi
+
+
+    echo -e "${BGreen}Created by: ${BRed}DCCXVII ${BBlue}(https://github.com/DCCXVII)${DefaultColor}"}
+
 }
 
 main
